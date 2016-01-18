@@ -1,8 +1,12 @@
+# Initialize output before importing any module, that can use colorama.
+from .system import init_output
+
+init_output()
+
 from argparse import ArgumentParser
 from warnings import warn
 from pprint import pformat
 import sys
-import colorama
 from . import logs, types, shells
 from .conf import settings
 from .corrector import get_corrected_commands
@@ -13,7 +17,6 @@ from .ui import select_command
 
 def fix_command():
     """Fixes previous command. Used when `thefuck` called without arguments."""
-    colorama.init()
     settings.init()
     with logs.debug_time('Total'):
         logs.debug(u'Run with settings: {}'.format(pformat(settings)))
@@ -51,7 +54,6 @@ def how_to_configure_alias():
     It'll be only visible when user type fuck and when alias isn't configured.
 
     """
-    colorama.init()
     settings.init()
     logs.how_to_configure_alias(shells.how_to_configure())
 

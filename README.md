@@ -167,6 +167,7 @@ using the matched rule and runs it. Rules enabled by default are as follows:
 * `git_push` &ndash; adds `--set-upstream origin $branch` to previous failed `git push`;
 * `git_push_pull` &ndash; runs `git pull` when `push` was rejected;
 * `git_stash` &ndash; stashes you local modifications before rebasing or switching branch;
+* `git_two_dashes` &ndash; adds a missing dash to commands like `git commit -amend` or `git rebase -continue`;
 * `go_run` &ndash; appends `.go` extension when compiling/running Go programs
 * `grep_recursive` &ndash; adds `-r` when you trying to `grep` directory;
 * `gulp_not_task` &ndash; fixes misspelled `gulp` tasks;
@@ -210,6 +211,7 @@ Enabled by default only on specific platforms:
 
 * `apt_get` &ndash; installs app from apt if it not installed (requires `python-commandnotfound` / `python3-commandnotfound`);
 * `apt_get_search` &ndash; changes trying to search using `apt-get` with searching using `apt-cache`;
+* `apt_invalid_operation` &ndash; fixes invalid `apt` and `apt-get` calls, like `apt-get isntall vim`;
 * `brew_install` &ndash; fixes formula name for `brew install`;
 * `brew_unknown_command` &ndash; fixes wrong brew commands, for example `brew docto/brew doctor`;
 * `brew_upgrade` &ndash; appends `--all` to `brew upgrade` as per Homebrew's new behaviour;
@@ -218,13 +220,13 @@ Enabled by default only on specific platforms:
 
 Bundled, but not enabled by default:
 
-* `git_push_force` &ndash; adds `--force` to a `git push` (may conflict with `git_push_pull`);
+* `git_push_force` &ndash; adds `--force-with-lease` to a `git push` (may conflict with `git_push_pull`);
 * `rm_root` &ndash; adds `--no-preserve-root` to `rm -rf /` command.
 
 ## Creating your own rules
 
 For adding your own rule you should create `your-rule-name.py`
-in `~/.thefuck/rules`. The rule should contain two functions:
+in `~/.config/thefuck/rules`. The rule should contain two functions:
 
 ```python
 match(command: Command) -> bool
@@ -241,7 +243,7 @@ and optional `enabled_by_default`, `requires_output` and `priority` variables.
 `Command` has three attributes: `script`, `stdout` and `stderr`.
 
 *Rules api changed in 3.0:* For accessing settings in rule you need to import it with `from thefuck.conf import settings`.
-`settings` is a special object filled with `~/.thefuck/settings.py` and values from env ([see more below](#settings)).
+`settings` is a special object filled with `~/.config/thefuck/settings.py` and values from env ([see more below](#settings)).
 
 Simple example of the rule for running script with `sudo`:
 
@@ -271,7 +273,7 @@ requires_output = True
 
 ## Settings
 
-The Fuck has a few settings parameters which can be changed in `~/.thefuck/settings.py`:
+The Fuck has a few settings parameters which can be changed in `$XDG_CONFIG_HOME/thefuck/settings.py` (`$XDG_CONFIG_HOME` defaults to `~/.config`):
 
 * `rules` &ndash; list of enabled rules, by default `thefuck.conf.DEFAULT_RULES`;
 * `exclude_rules` &ndash; list of disabled rules, by default `[]`;
@@ -279,7 +281,9 @@ The Fuck has a few settings parameters which can be changed in `~/.thefuck/setti
 * `wait_command` &ndash; max amount of time in seconds for getting previous command output;
 * `no_colors` &ndash; disable colored output;
 * `priority` &ndash; dict with rules priorities, rule with lower `priority` will be matched first;
-* `debug` &ndash; enables debug output, by default `False`.
+* `debug` &ndash; enables debug output, by default `False`;
+* `history_limit` &ndash; numeric value of how many history commands will be scanned, like `2000`;
+* `alter_history` &ndash; push fixed command to history, by default `True`.
 
 Example of `settings.py`:
 
@@ -302,7 +306,9 @@ Or via environment variables:
 * `THEFUCK_NO_COLORS` &ndash; disable colored output, `true/false`;
 * `THEFUCK_PRIORITY` &ndash; priority of the rules, like `no_command=9999:apt_get=100`,
 rule with lower `priority` will be matched first;
-* `THEFUCK_DEBUG` &ndash; enables debug output, `true/false`.
+* `THEFUCK_DEBUG` &ndash; enables debug output, `true/false`;
+* `THEFUCK_HISTORY_LIMIT` &ndash; how many history commands will be scanned, like `2000`;
+* `THEFUCK_ALTER_HISTORY` &ndash; push fixed command to history `true/false`.
 
 For example:
 
@@ -313,6 +319,7 @@ export THEFUCK_REQUIRE_CONFIRMATION='true'
 export THEFUCK_WAIT_COMMAND=10
 export THEFUCK_NO_COLORS='false'
 export THEFUCK_PRIORITY='no_command=9999:apt_get=100'
+export THEFUCK_HISTORY_LIMIT='2000'
 ```
 
 ## Developing

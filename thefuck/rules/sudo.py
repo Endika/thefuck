@@ -16,10 +16,14 @@ patterns = ['permission denied',
             'need root',
             'only root can ',
             'You don\'t have access to the history DB.',
-            'authentication is required']
+            'authentication is required',
+            'eDSPermissionError']
 
 
 def match(command):
+    if command.script_parts and '&&' not in command.script_parts and command.script_parts[0] == 'sudo':
+        return False
+
     for pattern in patterns:
         if pattern.lower() in command.stderr.lower()\
                 or pattern.lower() in command.stdout.lower():
@@ -28,7 +32,9 @@ def match(command):
 
 
 def get_new_command(command):
-    if '>' in command.script:
+    if '&&' in command.script:
+        return u'sudo sh -c "{}"'.format(" ".join([part for part in command.script_parts if part != "sudo"]))
+    elif '>' in command.script:
         return u'sudo sh -c "{}"'.format(command.script.replace('"', '\\"'))
     else:
         return u'sudo {}'.format(command.script)

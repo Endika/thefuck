@@ -1,11 +1,15 @@
 import os
 import zipfile
 from thefuck.utils import for_app
+from thefuck.shells import quote
 
 
 def _is_bad_zip(file):
-    with zipfile.ZipFile(file, 'r') as archive:
-        return len(archive.namelist()) > 1
+    try:
+        with zipfile.ZipFile(file, 'r') as archive:
+            return len(archive.namelist()) > 1
+    except:
+        return False
 
 
 def _zip_file(command):
@@ -13,22 +17,28 @@ def _zip_file(command):
     # unzip [-flags] file[.zip] [file(s) ...] [-x file(s) ...]
     #                ^          ^ files to unzip from the archive
     #                archive to unzip
-    for c in command.script.split()[1:]:
+    for c in command.script_parts[1:]:
         if not c.startswith('-'):
             if c.endswith('.zip'):
                 return c
             else:
-                return '{}.zip'.format(c)
+                return u'{}.zip'.format(c)
 
 
 @for_app('unzip')
 def match(command):
-    return ('-d' not in command.script
-            and _is_bad_zip(_zip_file(command)))
+    if '-d' in command.script:
+        return False
+
+    zip_file = _zip_file(command)
+    if zip_file:
+        return _is_bad_zip(zip_file)
+    else:
+        return False
 
 
 def get_new_command(command):
-    return '{} -d {}'.format(command.script, _zip_file(command)[:-4])
+    return u'{} -d {}'.format(command.script, quote(_zip_file(command)[:-4]))
 
 
 def side_effect(old_cmd, command):

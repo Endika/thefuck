@@ -1,26 +1,19 @@
-from difflib import get_close_matches
-from functools import wraps
-import shelve
-from warnings import warn
-from decorator import decorator
-from contextlib import closing
-
+import dbm
 import os
 import pickle
-import re
-from inspect import getargspec
-
-from pathlib import Path
 import pkg_resources
-import six
+import re
+import shelve
 from .conf import settings
+from contextlib import closing
+from decorator import decorator
+from difflib import get_close_matches
+from functools import wraps
+from inspect import getargspec
+from pathlib import Path
+from warnings import warn
 
 DEVNULL = open(os.devnull, 'w')
-
-if six.PY2:
-    from pipes import quote
-else:
-    from shlex import quote
 
 
 def memoize(fn):
@@ -29,11 +22,16 @@ def memoize(fn):
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        key = pickle.dumps((args, kwargs))
-        if key not in memo or memoize.disabled:
-            memo[key] = fn(*args, **kwargs)
+        if not memoize.disabled:
+            key = pickle.dumps((args, kwargs))
+            if key not in memo:
+                memo[key] = fn(*args, **kwargs)
+            value = memo[key]
+        else:
+            # Memoize is disabled, call the function
+            value = fn(*args, **kwargs)
 
-        return memo[key]
+        return value
 
     return wrapper
 memoize.disabled = False
@@ -112,7 +110,7 @@ def get_all_executables():
 
 def replace_argument(script, from_, to):
     """Replaces command line argument."""
-    replaced_in_the_end = re.sub(u' {}$'.format(from_), u' {}'.format(to),
+    replaced_in_the_end = re.sub(u' {}$'.format(re.escape(from_)), u' {}'.format(to),
                                  script, count=1)
     if replaced_in_the_end != script:
         return replaced_in_the_end
@@ -144,19 +142,23 @@ def replace_command(command, broken, matched):
 
 
 @memoize
-def is_app(command, *app_names):
+def is_app(command, *app_names, **kwargs):
     """Returns `True` if command is call to one of passed app names."""
-    for name in app_names:
-        if command.script == name \
-                or command.script.startswith(u'{} '.format(name)):
-            return True
+
+    at_least = kwargs.pop('at_least', 0)
+    if kwargs:
+        raise TypeError("got an unexpected keyword argument '{}'".format(kwargs.keys()))
+
+    if command.script_parts is not None and len(command.script_parts) > at_least:
+        return command.script_parts[0] in app_names
+
     return False
 
 
-def for_app(*app_names):
+def for_app(*app_names, **kwargs):
     """Specifies that matching script is for on of app names."""
     def _for_app(fn, command):
-        if is_app(command, *app_names):
+        if is_app(command, *app_names, **kwargs):
             return fn(command)
         else:
             return False
@@ -180,25 +182,51 @@ def cache(*depends_on):
         except OSError:
             return '0'
 
+    def _get_cache_path():
+        default_xdg_cache_dir = os.path.expanduser("~/.cache")
+        cache_dir = os.getenv("XDG_CACHE_HOME", default_xdg_cache_dir)
+        cache_path = Path(cache_dir).joinpath('thefuck').as_posix()
+
+        # Ensure the cache_path exists, Python 2 does not have the exist_ok
+        # parameter
+        try:
+            os.makedirs(cache_dir)
+        except OSError:
+            if not os.path.isdir(cache_dir):
+                raise
+
+        return cache_path
+
     @decorator
     def _cache(fn, *args, **kwargs):
         if cache.disabled:
             return fn(*args, **kwargs)
 
-        cache_path = settings.user_dir.joinpath('.thefuck-cache').as_posix()
         # A bit obscure, but simplest way to generate unique key for
         # functions and methods in python 2 and 3:
         key = '{}.{}'.format(fn.__module__, repr(fn).split('at')[0])
 
         etag = '.'.join(_get_mtime(name) for name in depends_on)
+        cache_path = _get_cache_path()
 
-        with closing(shelve.open(cache_path)) as db:
-            if db.get(key, {}).get('etag') == etag:
-                return db[key]['value']
-            else:
+        try:
+            with closing(shelve.open(cache_path)) as db:
+                if db.get(key, {}).get('etag') == etag:
+                    return db[key]['value']
+                else:
+                    value = fn(*args, **kwargs)
+                    db[key] = {'etag': etag, 'value': value}
+                    return value
+        except dbm.error:
+            # Caused when going from Python 2 to Python 3
+            warn("Removing possibly out-dated cache")
+            os.remove(cache_path)
+
+            with closing(shelve.open(cache_path)) as db:
                 value = fn(*args, **kwargs)
                 db[key] = {'etag': etag, 'value': value}
                 return value
+
     return _cache
 cache.disabled = False
 

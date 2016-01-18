@@ -16,6 +16,8 @@ DEFAULT_SETTINGS = {'rules': DEFAULT_RULES,
                     'no_colors': False,
                     'debug': False,
                     'priority': {},
+                    'history_limit': None,
+                    'alter_history': True,
                     'env': {'LC_ALL': 'C', 'LANG': 'C', 'GIT_TRACE': '1'}}
 
 ENV_TO_ATTR = {'THEFUCK_RULES': 'rules',
@@ -23,10 +25,12 @@ ENV_TO_ATTR = {'THEFUCK_RULES': 'rules',
                'THEFUCK_WAIT_COMMAND': 'wait_command',
                'THEFUCK_REQUIRE_CONFIRMATION': 'require_confirmation',
                'THEFUCK_NO_COLORS': 'no_colors',
+               'THEFUCK_DEBUG': 'debug',
                'THEFUCK_PRIORITY': 'priority',
-               'THEFUCK_DEBUG': 'debug'}
+               'THEFUCK_HISTORY_LIMIT': 'history_limit',
+               'THEFUCK_ALTER_HISTORY': 'alter_history'}
 
-SETTINGS_HEADER = u"""# ~/.thefuck/settings.py: The Fuck settings file
+SETTINGS_HEADER = u"""# The Fuck settings file
 #
 # The rules are defined as in the example bellow:
 #
@@ -71,9 +75,21 @@ class Settings(dict):
                 for setting in DEFAULT_SETTINGS.items():
                     settings_file.write(u'# {} = {}\n'.format(*setting))
 
+    def _get_user_dir_path(self):
+        # for backward compatibility, use `~/.thefuck` if it exists
+        legacy_user_dir = Path(os.path.expanduser('~/.thefuck'))
+
+        if legacy_user_dir.is_dir():
+            return legacy_user_dir
+        else:
+            default_xdg_config_dir = os.path.expanduser("~/.config")
+            xdg_config_dir = os.getenv("XDG_CONFIG_HOME", default_xdg_config_dir)
+            return Path(os.path.join(xdg_config_dir, 'thefuck'))
+
     def _setup_user_dir(self):
         """Returns user config dir, create it when it doesn't exist."""
-        user_dir = Path(os.path.expanduser('~/.thefuck'))
+        user_dir = self._get_user_dir_path()
+
         rules_dir = user_dir.joinpath('rules')
         if not rules_dir.is_dir():
             rules_dir.mkdir(parents=True)
@@ -112,8 +128,11 @@ class Settings(dict):
             return dict(self._priority_from_env(val))
         elif attr == 'wait_command':
             return int(val)
-        elif attr in ('require_confirmation', 'no_colors', 'debug'):
+        elif attr in ('require_confirmation', 'no_colors', 'debug',
+                      'alter_history'):
             return val.lower() == 'true'
+        elif attr == 'history_limit':
+            return int(val)
         else:
             return val
 

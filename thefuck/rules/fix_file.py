@@ -7,38 +7,38 @@ from thefuck import shells
 
 # order is important: only the first match is considered
 patterns = (
-        # js, node:
-        '^    at {file}:{line}:{col}',
-        # cargo:
-        '^   {file}:{line}:{col}',
-        # python, thefuck:
-        '^  File "{file}", line {line}',
-        # awk:
-        '^awk: {file}:{line}:',
-        # git
-        '^fatal: bad config file line {line} in {file}',
-        # llc:
-        '^llc: {file}:{line}:{col}:',
-        # lua:
-        '^lua: {file}:{line}:',
-        # fish:
-        '^{file} \\(line {line}\\):',
-        # bash, sh, ssh:
-        '^{file}: line {line}: ',
-        # cargo, clang, gcc, go, pep8, rustc:
-        '^{file}:{line}:{col}',
-        # ghc, make, ruby, zsh:
-        '^{file}:{line}:',
-        # perl:
-        'at {file} line {line}',
-    )
+    # js, node:
+    '^    at {file}:{line}:{col}',
+    # cargo:
+    '^   {file}:{line}:{col}',
+    # python, thefuck:
+    '^  File "{file}", line {line}',
+    # awk:
+    '^awk: {file}:{line}:',
+    # git
+    '^fatal: bad config file line {line} in {file}',
+    # llc:
+    '^llc: {file}:{line}:{col}:',
+    # lua:
+    '^lua: {file}:{line}:',
+    # fish:
+    '^{file} \\(line {line}\\):',
+    # bash, sh, ssh:
+    '^{file}: line {line}: ',
+    # cargo, clang, gcc, go, pep8, rustc:
+    '^{file}:{line}:{col}',
+    # ghc, make, ruby, zsh:
+    '^{file}:{line}:',
+    # perl:
+    'at {file} line {line}',
+)
 
 
 # for the sake of readability do not use named groups above
 def _make_pattern(pattern):
     pattern = pattern.replace('{file}', '(?P<file>[^:\n]+)') \
                      .replace('{line}', '(?P<line>[0-9]+)') \
-                     .replace('{col}',  '(?P<col>[0-9]+)')
+                     .replace('{col}', '(?P<col>[0-9]+)')
     return re.compile(pattern, re.MULTILINE)
 patterns = [_make_pattern(p).search for p in patterns]
 
@@ -58,7 +58,7 @@ def match(command):
     return _search(command.stderr) or _search(command.stdout)
 
 
-@default_settings({'fixlinecmd': '{editor} {file} +{line}',
+@default_settings({'fixlinecmd': u'{editor} {file} +{line}',
                    'fixcolcmd': None})
 def get_new_command(command):
     m = _search(command.stderr) or _search(command.stdout)

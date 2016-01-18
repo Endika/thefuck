@@ -3,25 +3,8 @@
 import sys
 from .conf import settings
 from .exceptions import NoRuleMatched
-from . import logs
-
-try:
-    from msvcrt import getch
-except ImportError:
-    def getch():
-        import tty
-        import termios
-
-        fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            ch = sys.stdin.read(1)
-            if ch == '\x03':  # For compatibility with msvcrt.getch
-                raise KeyboardInterrupt
-            return ch
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+from .system import get_key
+from . import logs, const
 
 SELECT = 0
 ABORT = 1
@@ -31,23 +14,17 @@ NEXT = 3
 
 def read_actions():
     """Yields actions for pressed keys."""
-    buffer = []
     while True:
-        try:
-            ch = getch()
-        except KeyboardInterrupt:  # Ctrl+C
-            yield ABORT
+        key = get_key()
 
-        if ch in ('\n', '\r'):  # Enter
-            yield SELECT
-
-        buffer.append(ch)
-        buffer = buffer[-3:]
-
-        if buffer == ['\x1b', '[', 'A'] or ch == 'k':  # ↑
+        if key in (const.KEY_UP, 'k'):
             yield PREVIOUS
-        elif buffer == ['\x1b', '[', 'B'] or ch == 'j':  # ↓
+        elif key in (const.KEY_DOWN, 'j'):
             yield NEXT
+        elif key == const.KEY_CTRL_C:
+            yield ABORT
+        elif key in ('\n', '\r'):
+            yield SELECT
 
 
 class CommandSelector(object):

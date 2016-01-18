@@ -1,13 +1,13 @@
 from imp import load_source
-import os
 from subprocess import Popen, PIPE
+import os
 import sys
-from psutil import Process, TimeoutExpired
 import six
-from .conf import settings, DEFAULT_PRIORITY, ALL_ENABLED
-from .utils import compatibility_call
-from .exceptions import EmptyCommand
+from psutil import Process, TimeoutExpired
 from . import logs, shells
+from .conf import settings, DEFAULT_PRIORITY, ALL_ENABLED
+from .exceptions import EmptyCommand
+from .utils import compatibility_call
 
 
 class Command(object):
@@ -25,16 +25,27 @@ class Command(object):
         self.stdout = stdout
         self.stderr = stderr
 
+    @property
+    def script_parts(self):
+        if not hasattr(self, '_script_parts'):
+            try:
+                self._script_parts = shells.split_command(self.script)
+            except Exception:
+                logs.debug(u"Can't split command script {} because:\n {}".format(
+                        self, sys.exc_info()))
+                self._script_parts = None
+        return self._script_parts
+
     def __eq__(self, other):
         if isinstance(other, Command):
             return (self.script, self.stdout, self.stderr) \
-                == (other.script, other.stdout, other.stderr)
+                   == (other.script, other.stdout, other.stderr)
         else:
             return False
 
     def __repr__(self):
-        return 'Command(script={}, stdout={}, stderr={})'.format(
-            self.script, self.stdout, self.stderr)
+        return u'Command(script={}, stdout={}, stderr={})'.format(
+                self.script, self.stdout, self.stderr)
 
     def update(self, **kwargs):
         """Returns new command with replaced fields.
@@ -155,9 +166,9 @@ class Rule(object):
         return 'Rule(name={}, match={}, get_new_command={}, ' \
                'enabled_by_default={}, side_effect={}, ' \
                'priority={}, requires_output)'.format(
-                    self.name, self.match, self.get_new_command,
-                    self.enabled_by_default, self.side_effect,
-                    self.priority, self.requires_output)
+                self.name, self.match, self.get_new_command,
+                self.enabled_by_default, self.side_effect,
+                self.priority, self.requires_output)
 
     @classmethod
     def from_path(cls, path):
@@ -256,9 +267,9 @@ class CorrectedCommand(object):
         return (self.script, self.side_effect).__hash__()
 
     def __repr__(self):
-        return 'CorrectedCommand(script={}, side_effect={}, priority={})'.format(
-            self.script, self.side_effect, self.priority)
-    
+        return u'CorrectedCommand(script={}, side_effect={}, priority={})'.format(
+                self.script, self.side_effect, self.priority)
+
     def run(self, old_cmd):
         """Runs command from rule for passed command.
 
@@ -267,5 +278,9 @@ class CorrectedCommand(object):
         """
         if self.side_effect:
             compatibility_call(self.side_effect, old_cmd, self.script)
-        shells.put_to_history(self.script)
+        if settings.alter_history:
+            shells.put_to_history(self.script)
+        # This depends on correct setting of PYTHONIOENCODING by the alias:
+        logs.debug(u'PYTHONIOENCODING: {}'.format(
+            os.environ.get('PYTHONIOENCODING', '>-not-set-<')))
         print(self.script)
